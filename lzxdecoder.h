@@ -1,77 +1,83 @@
 #pragma once
 
-#include <array>
-#include <string>
-
-#include <BinaryReader.hpp>
-#include <BinaryWriter.hpp>
-#include "BitBuffer.hpp"
-
-#define MIN_MATCH					2
-#define MAX_MATCH					257
-#define NUM_CHARS					256
-#define PRETREE_NUM_ELEMENTS		20
-#define ALIGNED_NUM_ELEMENTS		8
-#define NUM_PRIMARY_LENGTHS			7
-#define NUM_SECONDARY_LENGTHS		249
-
-const uint16_t PRETREE_MAXSYMBOLS = PRETREE_NUM_ELEMENTS;
-const uint16_t MAINTREE_MAXSYMBOLS = NUM_CHARS + 50*8;
-const uint16_t LENGTH_MAXSYMBOLS = NUM_SECONDARY_LENGTHS + 1;
-const uint16_t ALIGNED_MAXSYMBOLS = ALIGNED_NUM_ELEMENTS;
-
-const uint8_t PRETREE_TABLEBITS = 6;
-const uint8_t MAINTREE_TABLEBITS = 12;
-const uint8_t LENGTH_TABLEBITS = 12;
-const uint8_t ALIGNED_TABLEBITS = 7;
-
-class LzxDecoder
+class c_lzx_decoder
 {
-	public:
-		explicit LzxDecoder(const uint_fast16_t window_bits);
-		LzxDecoder(const LzxDecoder&) = delete;
-		~LzxDecoder();
-		void Decompress(const uint8_t* inBuf, const uint_fast32_t inLen, uint8_t* outBuf, const uint_fast32_t outLen);
+public:
+	c_lzx_decoder(unsigned short window_bits);
+	c_lzx_decoder(const c_lzx_decoder&) = delete;
+	c_lzx_decoder& operator=(const c_lzx_decoder&) = delete;
+	~c_lzx_decoder();
+	void decompress(
+		const unsigned char* const compressed_buffer,
+		unsigned long const compressed_buffer_length,
+		unsigned char* uncompressed_buffer,
+		const unsigned long uncompressed_buffer_length);
 
-	private:
-		void MakeDecodeTable(uint16_t nsyms, uint8_t nbits, uint8_t* length, uint16_t* table);
-		void ReadLengths(uint8_t* lens, uint_fast32_t first, uint_fast32_t last, BitBuffer& bitbuf);
-		uint32_t ReadHuffSym(const uint16_t* table, const uint8_t* lengths, uint32_t nsyms, uint8_t nbits, BitBuffer& bitbuf);
+private:
+	static constexpr unsigned short k_min_match = 2;
+	static constexpr unsigned short k_max_match = 257;
+	static constexpr unsigned short k_num_chars = 256;
+	static constexpr unsigned short k_pre_tree_num_elements = 20;
+	static constexpr unsigned short k_aligned_num_elements = 8;
+	static constexpr unsigned short k_num_primary_lengths = 7;
+	static constexpr unsigned short k_num_secondary_lengths = 249;
 
-		std::array<uint32_t, 51> position_base;
-		std::array<uint8_t, 52> extra_bits;
+	static constexpr unsigned short k_pre_tree_max_symbols = k_pre_tree_num_elements;
+	static constexpr unsigned short m_main_tree_max_symbols = k_num_chars + 50 * 8;
+	static constexpr unsigned short k_length_max_symbols = k_num_secondary_lengths + 1;
+	static constexpr unsigned short k_aligned_max_symbols = k_aligned_num_elements;
 
-		enum class BLOCKTYPE : uint8_t
-		{
-			INVALID = 0,
-			VERBATIM = 1,
-			ALIGNED = 2,
-			UNCOMPRESSED = 3,
-		};
-		static std::string to_string(BLOCKTYPE);
+	static constexpr unsigned char k_pre_tree_bits = 6;
+	static constexpr unsigned char k_main_tree_bits = 12;
+	static constexpr unsigned char k_length_table_bits = 12;
+	static constexpr unsigned char k_aligned_table_bits = 7;
 
-		struct
-		{
-			uint8_t*			window;
-			uint_fast32_t		window_size;
-			uint_fast32_t		window_posn;
+	void make_decode_table(unsigned short num_symbols, unsigned char num_bits, unsigned char* length, unsigned short* table);
+	void read_lengths(unsigned char* lens, unsigned long first, unsigned long last);
+	unsigned long read_huffman_symbols(const unsigned short* table, const unsigned char* lengths, unsigned long num_symbols, unsigned char num_bits);
 
-			uint_fast32_t		R0, R1, R2; 		// for the LRU offset system
-			uint16_t			main_elements;		// number of main tree elements
-			bool				header_read;		// have we started decoding at all yet?
-			BLOCKTYPE			block_type;			// type of this block
-			uint32_t			block_length;		// uncompressed length of this block
-			uint32_t			block_remaining;	// uncompressed bytes still left to decode
+	static long const position_base_minus2[];
+	static unsigned char const extra_bits[];
+	//unsigned long position_base[51];
+	//unsigned char extra_bits[52];
 
-			std::array<uint8_t,  PRETREE_MAXSYMBOLS>  PRETREE_len;
-			std::array<uint8_t, MAINTREE_MAXSYMBOLS> MAINTREE_len;
-			std::array<uint8_t,   LENGTH_MAXSYMBOLS>   LENGTH_len;
-			std::array<uint8_t,  ALIGNED_MAXSYMBOLS>  ALIGNED_len;
+	enum class e_block_type : unsigned char
+	{
+		_lxz_block_type_invalid,
+		_lxz_block_type_verbatim,
+		_lxz_block_type_aligned,
+		_lxz_block_type_uncompressed,
+	};
 
-			std::array<uint16_t, (1 <<  PRETREE_TABLEBITS) + ( PRETREE_MAXSYMBOLS * 2)>  PRETREE_table;
-			std::array<uint16_t, (1 << MAINTREE_TABLEBITS) + (MAINTREE_MAXSYMBOLS * 2)> MAINTREE_table;
-			std::array<uint16_t, (1 <<   LENGTH_TABLEBITS) + (  LENGTH_MAXSYMBOLS * 2)>   LENGTH_table;
-			std::array<uint16_t, (1 <<  ALIGNED_TABLEBITS) + ( ALIGNED_MAXSYMBOLS * 2)>  ALIGNED_table;
+	unsigned char* window;
+	unsigned long window_size;
+	unsigned long window_posn;
 
-		} state;
+	unsigned long R0;
+	unsigned long R1;
+	unsigned long R2;
+	unsigned short main_elements; // number of main tree elements
+	bool header_read; // have we started decoding at all yet?
+	e_block_type block_type; // type of this block
+	unsigned long block_length; // uncompressed length of this block
+	unsigned long block_remaining; // uncompressed bytes still left to decode
+
+	void init_bits(const unsigned char* input_buffer);
+	void ensure_bits(unsigned char bits);
+	unsigned long peek_bits(unsigned char bits) const;
+	void remove_bits(unsigned char bits);
+	unsigned long read_bits(unsigned char bits);
+
+	unsigned long bit_buffer_buffer;
+	unsigned char bit_buffer_bits_left;
+	unsigned long bit_buffer_input_position;
+	const unsigned char* bit_buffer_input_buffer;
+
+	unsigned char MAINTREE_len[m_main_tree_max_symbols];
+	unsigned char LENGTH_len[k_length_max_symbols];
+	unsigned char ALIGNED_len[k_aligned_max_symbols];
+	unsigned short PRETREE_table[(1 << k_pre_tree_bits) + (k_pre_tree_max_symbols * 2)];
+	unsigned short MAINTREE_table[(1 << k_main_tree_bits) + (m_main_tree_max_symbols * 2)];
+	unsigned short LENGTH_table[(1 << k_length_table_bits) + (k_length_max_symbols * 2)];
+	unsigned short ALIGNED_table[(1 << k_aligned_table_bits) + (k_aligned_max_symbols * 2)];
 };
